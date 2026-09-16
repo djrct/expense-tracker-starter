@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Purpose
 
-This is the starter project for Mosh Hamedani's [Claude Code course](https://codewithmosh.com/p/claude-code). Per the README, it **intentionally ships with a bug, poor UI, and messy code** — these are the material the course fixes step by step. Do not treat the existing flaws as accidental or as conventions to imitate; they are the work items.
+This is the starter project for Mosh Hamedani's [Claude Code course](https://codewithmosh.com/p/claude-code). Per the README, it **originally shipped with a bug, poor UI, and messy code** — these are the material the course fixes step by step. Some have since been fixed (see Known Defects); the README still describes the original state.
 
 ## Commands
 
@@ -28,32 +28,41 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 
 ## Architecture
 
-React 19 + Vite 7, plain JavaScript (no TypeScript), plain CSS (no framework).
+React 19 + Vite 7, plain JavaScript (no TypeScript), plain CSS (no framework). No router, no state library, no backend, no persistence — `transactions` lives in a `useState` array seeded with eight hardcoded rows, so every refresh resets the data.
 
-The entire application is **one component**: `src/App.jsx` holds all state, all derived values, and all markup in ~157 lines. `src/main.jsx` does nothing but mount it under `StrictMode`. There is no router, no state library, no backend, and no persistence — transactions live in a `useState` array seeded with eight hardcoded rows, so every refresh resets the data.
+**Component structure:**
 
-Data flow inside `App.jsx`, in the order it appears:
+- `src/App.jsx` — owns the `transactions` array state, passes it down to children
+- `src/components/Summary.jsx` — computes and displays `totalIncome`, `totalExpenses`, `balance` from the `transactions` prop
+- `src/components/TransactionForm.jsx` — owns form state (`description`, `amount`, `type`, `category`), calls the `onAdd` prop on submit
+- `src/components/TransactionList.jsx` — owns filter state (`filterType`, `filterCategory`), renders the filtered transactions table
+- `src/constants.js` — exports `CATEGORIES`, shared by the form's category select and the list's filter select
 
-1. **State** — `transactions` plus six separate `useState` values for the form fields (`description`, `amount`, `type`, `category`) and the filters (`filterType`, `filterCategory`).
-2. **Derived totals** — `totalIncome` / `totalExpenses` computed by `filter().reduce()`, then `balance` as their difference. Recomputed inline on every render; nothing is memoized.
-3. **Derived list** — `filteredTransactions` built by reassigning a `let` and chaining `.filter()` calls, one per active filter.
-4. **`handleSubmit`** — guards on empty description/amount, appends a transaction keyed by `Date.now()`, stamps today's date, resets the form.
+`App.jsx` is deliberately thin (~35 lines): one piece of state, one handler. New feature state belongs in the child that uses it, and only rises to `App` when a second component needs it. `onAdd` is the only channel by which a child mutates App state.
 
-The `categories` array (`src/App.jsx:23`) is the single source of truth for category options and drives both the form's category `<select>` and the filter `<select>`.
+### Styling
 
-Styling lives in `src/index.css` (global reset + body font) and `src/App.css` (component classes, flexbox layout, fixed `max-width: 800px`). Class names map one-to-one onto the sections of `App.jsx` (`.summary`, `.summary-card`, `.add-transaction`, `.transactions`, `.filters`). Note that `.income-amount` and `.expense-amount` are reused for both the summary cards and the table cells, so changing them affects both.
+All CSS is global and centralized: `src/index.css` (reset + body font) and `src/App.css` (everything else). **Components have no stylesheets of their own** and do not import CSS — `App.jsx` imports `App.css` once and the class names cascade everywhere.
+
+Before moving rules into a component stylesheet, check for sharing: `.income-amount` and `.expense-amount` are used by **both** `Summary`'s cards and `TransactionList`'s amount cells, so splitting them per-component breaks one of the two. Class names otherwise map one-to-one onto components (`.summary`/`.summary-card`, `.add-transaction`, `.transactions`/`.filters`).
 
 ## Known Defects
 
-These are pre-existing and deliberate. Know which one you are being asked to fix.
+- **Miscategorized seed row** (`src/App.jsx:12`): "Freelance Work" is `type: "expense"` with `category: "salary"`. Almost certainly meant to be income; flipping it moves $800 from expenses to income, so it changes the displayed totals.
+- **No amount formatting**: values are interpolated raw as `${t.amount}` with no currency, thousands separators, or decimal places.
+- **No delete or edit**: transactions can only be added. An earlier empty 5th table column that anticipated a delete button has been removed, so adding one means adding the `<th>`/`<td>` back.
 
-- **The totals bug** (`src/App.jsx:25-31`): amounts are stored as **strings**, both in the seed data and in `handleSubmit` (the number `<input>` yields a string). `reduce((sum, t) => sum + t.amount, 0)` therefore concatenates instead of adding — Income renders `$05000`, Expenses `$0120015080095651545`, and Balance `NaN`. A real fix has to cover the seed data, the form submission, and the reducers together; patching only the reducer leaves new entries broken.
-- **Miscategorized seed row** (`src/App.jsx:9`): "Freelance Work" is `type: "expense"` with `category: "salary"`.
-- **Orphaned table column** (`src/App.jsx:135` and `:147`): an empty `<th>` and empty `<td>` remain where a per-row action (delete) was removed. Adding a delete feature should reuse those slots.
-- **No amount formatting**: values are interpolated raw as `${t.amount}` with no currency or decimal formatting.
+### Fixed — do not reintroduce
+
+Amounts must be stored as **numbers**, never strings. The original bug was `reduce((sum, t) => sum + t.amount, 0)` concatenating because seed amounts were quoted and the number `<input>` yields a string, rendering Income as `$05000` and Balance as `NaN`. Both entry points are now guarded: seed data is unquoted, and `TransactionForm` runs `parseFloat` before calling `onAdd`. Any new path that introduces a transaction must parse too. Note the submit guard tests `Number.isNaN(parsedAmount)`, not falsiness, so a legitimate `0` is accepted.
 
 ## Conventions
 
-- Double-quoted strings and semicolons inside `App.jsx`; the Vite-generated files (`main.jsx`, config files) use single quotes and omit semicolons. Match whichever file you are editing.
+- Double-quoted strings and semicolons in `App.jsx`'s body and in every file under `src/components/`; the Vite-generated files (`main.jsx`, `App.jsx`'s import lines, config files) use single quotes and omit semicolons. Match whichever file you are editing.
+- Components are function declarations with a `default` export at the bottom, one component per file, props destructured in the signature. No PropTypes or TypeScript anywhere — do not add them to a single file in isolation.
 - ESLint runs flat config with `react-hooks` and `react-refresh`; `no-unused-vars` is an **error**, with an exemption for identifiers matching `^[A-Z_]`.
 - The npm package is named `finance-tracker` and the UI heading reads "Finance Tracker", while the repo is `expense-tracker-starter`. Both names are in play; don't "correct" one to the other without being asked.
+
+## Git Remotes
+
+`origin` is the user's own fork (`djrct/expense-tracker-starter`); `upstream` is Mosh's original (`mosh-hamedani/expense-tracker-starter`). Push to `origin`; pull course updates with `git fetch upstream`.
