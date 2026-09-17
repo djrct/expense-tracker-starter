@@ -8,14 +8,6 @@ This is the starter project for Mosh Hamedani's [Claude Code course](https://cod
 
 ## Commands
 
-```bash
-npm install      # install dependencies
-npm run dev      # Vite dev server on http://localhost:5173
-npm run build    # production build to dist/
-npm run preview  # serve the built dist/
-npm run lint     # ESLint over all .js/.jsx
-```
-
 There is **no test infrastructure** — no test script, no test runner, no test files. Any request to "run the tests" requires setting up a framework first (Vitest is the natural fit alongside Vite).
 
 ### Killing a stray dev server (Windows)
@@ -35,22 +27,24 @@ React 19 + Vite 7, plain JavaScript (no TypeScript), plain CSS (no framework). N
 - `src/App.jsx` — owns the `transactions` array state, passes it down to children
 - `src/components/Summary.jsx` — computes and displays `totalIncome`, `totalExpenses`, `balance` from the `transactions` prop
 - `src/components/TransactionForm.jsx` — owns form state (`description`, `amount`, `type`, `category`), calls the `onAdd` prop on submit
-- `src/components/TransactionList.jsx` — owns filter state (`filterType`, `filterCategory`), renders the filtered transactions table
+- `src/components/TransactionList.jsx` — owns filter state (`filterType`, `filterCategory`), renders the filtered transactions table, and calls the `onDelete` prop with a transaction's `id` after a `window.confirm`
 - `src/constants.js` — exports `CATEGORIES`, shared by the form's category select and the list's filter select
 
-`App.jsx` is deliberately thin (~35 lines): one piece of state, one handler. New feature state belongs in the child that uses it, and only rises to `App` when a second component needs it. `onAdd` is the only channel by which a child mutates App state.
+`App.jsx` is deliberately thin (~40 lines): one piece of state, two handlers. New feature state belongs in the child that uses it, and only rises to `App` when a second component needs it. `onAdd` and `onDelete` are the only channels by which a child mutates App state.
+
+Deletion keys off `id`, never the row index — `TransactionList` renders a *filtered* view, so an index refers to the wrong transaction whenever a filter is active.
 
 ### Styling
 
 All CSS is global and centralized: `src/index.css` (reset + body font) and `src/App.css` (everything else). **Components have no stylesheets of their own** and do not import CSS — `App.jsx` imports `App.css` once and the class names cascade everywhere.
 
-Before moving rules into a component stylesheet, check for sharing: `.income-amount` and `.expense-amount` are used by **both** `Summary`'s cards and `TransactionList`'s amount cells, so splitting them per-component breaks one of the two. Class names otherwise map one-to-one onto components (`.summary`/`.summary-card`, `.add-transaction`, `.transactions`/`.filters`).
+Before moving rules into a component stylesheet, check for sharing: `.income-amount` and `.expense-amount` are used by **both** `Summary`'s cards and `TransactionList`'s amount cells, so splitting them per-component breaks one of the two. Class names otherwise map one-to-one onto components (`.summary`/`.summary-card`, `.add-transaction`, `.transactions`/`.filters`, `.delete-btn`).
 
 ## Known Defects
 
 - **Miscategorized seed row** (`src/App.jsx:12`): "Freelance Work" is `type: "expense"` with `category: "salary"`. Almost certainly meant to be income; flipping it moves $800 from expenses to income, so it changes the displayed totals.
 - **No amount formatting**: values are interpolated raw as `${t.amount}` with no currency, thousands separators, or decimal places.
-- **No delete or edit**: transactions can only be added. An earlier empty 5th table column that anticipated a delete button has been removed, so adding one means adding the `<th>`/`<td>` back.
+- **No edit**: rows can be added and deleted, but an existing transaction cannot be edited in place.
 
 ### Fixed — do not reintroduce
 
@@ -60,9 +54,5 @@ Amounts must be stored as **numbers**, never strings. The original bug was `redu
 
 - Double-quoted strings and semicolons in `App.jsx`'s body and in every file under `src/components/`; the Vite-generated files (`main.jsx`, `App.jsx`'s import lines, config files) use single quotes and omit semicolons. Match whichever file you are editing.
 - Components are function declarations with a `default` export at the bottom, one component per file, props destructured in the signature. No PropTypes or TypeScript anywhere — do not add them to a single file in isolation.
-- ESLint runs flat config with `react-hooks` and `react-refresh`; `no-unused-vars` is an **error**, with an exemption for identifiers matching `^[A-Z_]`.
 - The npm package is named `finance-tracker` and the UI heading reads "Finance Tracker", while the repo is `expense-tracker-starter`. Both names are in play; don't "correct" one to the other without being asked.
 
-## Git Remotes
-
-`origin` is the user's own fork (`djrct/expense-tracker-starter`); `upstream` is Mosh's original (`mosh-hamedani/expense-tracker-starter`). Push to `origin`; pull course updates with `git fetch upstream`.
