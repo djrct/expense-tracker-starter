@@ -1,3 +1,5 @@
+import { formatAmount } from "../format";
+
 function Summary({ transactions }) {
   const totalIncome = transactions
     .filter(t => t.type === "income")
@@ -13,15 +15,15 @@ function Summary({ transactions }) {
     <div className="summary">
       <div className="summary-card">
         <h3>Income</h3>
-        <p className="income-amount">${totalIncome}</p>
+        <p className="income-amount">{formatAmount(totalIncome)}</p>
       </div>
       <div className="summary-card">
         <h3>Expenses</h3>
-        <p className="expense-amount">${totalExpenses}</p>
+        <p className="expense-amount">{formatAmount(totalExpenses)}</p>
       </div>
       <div className="summary-card">
         <h3>Balance</h3>
-        <p className="balance-amount">${balance}</p>
+        <p className="balance-amount">{formatAmount(balance)}</p>
       </div>
     </div>
   );

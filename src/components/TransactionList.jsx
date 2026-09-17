@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CATEGORIES } from "../constants";
+import { formatAmount } from "../format";
 
 function TransactionList({ transactions, onDelete }) {
   const [filterType, setFilterType] = useState("all");
@@ -47,7 +48,7 @@ function TransactionList({ transactions, onDelete }) {
               <td>{t.description}</td>
               <td>{t.category}</td>
               <td className={t.type === "income" ? "income-amount" : "expense-amount"}>
-                {t.type === "income" ? "+" : "-"}${t.amount}
+                {t.type === "income" ? "+" : "-"}{formatAmount(t.amount)}
               </td>
               <td>
                 <button

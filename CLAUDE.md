@@ -29,6 +29,7 @@ React 19 + Vite 7, plain JavaScript (no TypeScript), plain CSS (no framework). N
 - `src/components/TransactionForm.jsx` — owns form state (`description`, `amount`, `type`, `category`), calls the `onAdd` prop on submit
 - `src/components/TransactionList.jsx` — owns filter state (`filterType`, `filterCategory`), renders the filtered transactions table, and calls the `onDelete` prop with a transaction's `id` after a `window.confirm`
 - `src/constants.js` — exports `CATEGORIES`, shared by the form's category select and the list's filter select
+- `src/format.js` — exports `formatAmount(amount)`, a module-level `Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })`. Every displayed amount goes through it: `Summary`'s three cards and `TransactionList`'s amount cells
 
 `App.jsx` is deliberately thin (~40 lines): one piece of state, two handlers. New feature state belongs in the child that uses it, and only rises to `App` when a second component needs it. `onAdd` and `onDelete` are the only channels by which a child mutates App state.
 
@@ -43,10 +44,11 @@ Before moving rules into a component stylesheet, check for sharing: `.income-amo
 ## Known Defects
 
 - **Miscategorized seed row** (`src/App.jsx:12`): "Freelance Work" is `type: "expense"` with `category: "salary"`. Almost certainly meant to be income; flipping it moves $800 from expenses to income, so it changes the displayed totals.
-- **No amount formatting**: values are interpolated raw as `${t.amount}` with no currency, thousands separators, or decimal places.
 - **No edit**: rows can be added and deleted, but an existing transaction cannot be edited in place.
 
 ### Fixed — do not reintroduce
+
+`formatAmount` returns the **currency symbol itself** (`$5,000.00`), so JSX must never prefix a literal `$` — that was the original shape and it would render `$$5,000.00`. `TransactionList` still prefixes `+`/`-` by `type`, which is separate and correct: amounts are stored unsigned. The locale is hardcoded `en-US`.
 
 Amounts must be stored as **numbers**, never strings. The original bug was `reduce((sum, t) => sum + t.amount, 0)` concatenating because seed amounts were quoted and the number `<input>` yields a string, rendering Income as `$05000` and Balance as `NaN`. Both entry points are now guarded: seed data is unquoted, and `TransactionForm` runs `parseFloat` before calling `onAdd`. Any new path that introduces a transaction must parse too. Note the submit guard tests `Number.isNaN(parsedAmount)`, not falsiness, so a legitimate `0` is accepted.
 
